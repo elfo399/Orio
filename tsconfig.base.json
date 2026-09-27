@@ -1,0 +1,23 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@orio/contracts": ["libs/contracts/src/index.ts"],
+      "@orio/game-engine": ["libs/game-engine/src/index.ts"],
+      "@orio/database": ["libs/database/src/index.ts"],
+      "@orio/shared": ["libs/shared/src/index.ts"]
+    }
+  }
+}

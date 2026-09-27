@@ -1,0 +1,9 @@
+{
+  "name": "ORIO — Your little world, alive.",
+  "short_name": "ORIO",
+  "theme_color": "#789b82",
+  "background_color": "#f7f1e8",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [{ "src": "assets/orio-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

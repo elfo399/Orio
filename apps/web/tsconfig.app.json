@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "../../dist/out-tsc/web", "types": [], "lib": ["ES2022", "DOM"] },
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.d.ts"]
+}
