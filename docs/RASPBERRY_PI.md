@@ -17,6 +17,8 @@ docker compose -f compose.prod.yaml ps
 
 The API performs migration and idempotent seeding before serving. The named volume survives containers being replaced.
 
+The Jenkins deployment also applies `compose.proxy.yaml`, joining only the Caddy `web` service to Nginx Proxy Manager's external `proxy-net`. Configure the proxy host to forward to `orio-web:80`; do not expose the API or PostgreSQL.
+
 ## Private access and backup
 
 By default, ORIO binds only to host loopback. Use Tailscale Serve or an existing HTTPS reverse proxy that points to the loopback port. Preserve HTTPS so secure session cookies work.

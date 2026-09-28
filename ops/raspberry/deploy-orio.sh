@@ -57,9 +57,10 @@ if ! grep -q '^REGISTRATION_MODE=' "$DEPLOY_ENV"; then
 fi
 
 cd "$release"
-docker compose --env-file "$DEPLOY_ENV" config --quiet
-docker compose --env-file "$DEPLOY_ENV" build api web
-docker compose --env-file "$DEPLOY_ENV" up -d --wait --wait-timeout 180 --remove-orphans
+readonly COMPOSE=(docker compose --env-file "$DEPLOY_ENV" -f compose.yaml -f compose.proxy.yaml)
+"${COMPOSE[@]}" config --quiet
+"${COMPOSE[@]}" build api web
+"${COMPOSE[@]}" up -d --wait --wait-timeout 180 --remove-orphans
 curl --fail --silent --show-error --max-time 15 http://127.0.0.1:18080/ >/dev/null
 
 ln -sfn "$release" "$ROOT/current"

@@ -1,0 +1,14 @@
+# Raspberry Pi overlay: makes Caddy reachable by Nginx Proxy Manager without
+# publishing the application port beyond loopback. `proxy-net` is managed by NPM.
+services:
+  web:
+    networks:
+      default: {}
+      proxy-net:
+        aliases:
+          - orio-web
+
+networks:
+  proxy-net:
+    external: true
+    name: proxy-net
