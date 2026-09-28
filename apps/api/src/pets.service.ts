@@ -61,6 +61,7 @@ export class PetsService implements OnModuleDestroy {
   }
 
   async act(userId: string, action: PetAction, input: IdempotencyInput): Promise<ActionResponse> {
+    if (action === 'feed' || action === 'play' || action === 'clean') throw new ConflictException('Start the matching minigame to earn this reward.');
     return this.db.transaction(async (tx) => {
       await this.lockUser(tx, userId);
       const row = await this.currentLocked(tx, userId);

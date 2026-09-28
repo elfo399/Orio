@@ -13,12 +13,17 @@ All endpoints are under `/api`. Apart from health and authentication, every rout
 | `GET` | `/auth/me` | Return the authenticated display name and email |
 | `GET` | `/pets/current` | Simulate and return the current user's pet, or `404` before adoption |
 | `POST` | `/pets` | Adopt the current user's pet |
-| `POST` | `/pets/current/actions/feed` | Feed (+20 satiety, 5 min cooldown) |
-| `POST` | `/pets/current/actions/play` | Play (+15 joy, -10 energy, -5 satiety, 5 min cooldown) |
-| `POST` | `/pets/current/actions/clean` | Clean (+25 hygiene, 10 min cooldown) |
+| `POST` | `/minigames/sessions` | Start Feed, Play, or Clean and return the server-generated configuration |
+| `GET` | `/minigames/sessions/:id` | Read the authenticated owner's session and its status |
+| `POST` | `/minigames/sessions/:id/complete` | Verify game interactions, award the result once, and apply the cooldown |
+| `POST` | `/minigames/sessions/:id/abandon` | Close an active round without a reward or cooldown |
 | `POST` | `/pets/current/actions/sleep` | Start sleeping |
 | `POST` | `/pets/current/actions/wake` | Wake up |
 
 Registration accepts `email`, `displayName`, `password`, `confirmPassword`, and optionally `inviteCode`. Emails are normalized and passwords require at least 12 characters with uppercase, lowercase, and a number. Set server-side `REGISTRATION_MODE` to `invite`, `open`, or `disabled`; in invite mode, `INVITE_CODES` is never sent to clients.
 
-Adoption accepts `{ "name": "Miso" }`. Actions accept `{ "idempotencyKey": "uuid-optional" }`; a retry can replay only a prior action for that same pet. Clients never send user IDs, statistics, or timestamps.
+Adoption accepts `{ "name": "Miso" }`. Sleep and wake actions accept `{ "idempotencyKey": "uuid-optional" }`; a retry can replay only a prior action for that same pet. Clients never send user IDs, statistics, or timestamps.
+
+To start a game, send `{ "gameType": "feed" | "play" | "clean" }`. Only one active session is permitted for each pet. Sessions expire, can be abandoned without a cooldown, and can be completed only by their owner. Completion accepts only interaction data: Snack Catch sends capped, chronologically plausible catches; Memory Lights sends attempted sequences which are compared with the server-generated sequence; Bubble Bath sends unique configured zone IDs. The server calculates score, reward, stat clamping, energy cost, cooldown, event record, and idempotent replay in one transaction.
+
+The browser is not a trusted execution environment. These validations reject arbitrary final scores, impossible event rates, invalid zones, expired sessions, and duplicate completion, but they are plausibility controls rather than anti-cheat protection for a competitive game.

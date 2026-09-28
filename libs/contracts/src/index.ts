@@ -54,3 +54,49 @@ export interface ApiPet {
 
 export interface PetResponse { pet: ApiPet; cooldowns: Partial<Record<PetAction, string>>; }
 export interface ActionResponse extends PetResponse { message: string; replayed?: boolean; }
+
+export const minigameTypeSchema = z.enum(['feed', 'play', 'clean']);
+export type MiniGameType = z.infer<typeof minigameTypeSchema>;
+
+export const minigameStartSchema = z.object({ gameType: minigameTypeSchema });
+export type MiniGameStartInput = z.infer<typeof minigameStartSchema>;
+
+const feedEventSchema = z.object({ kind: z.enum(['good', 'spoiled']), atMs: z.number().int().min(0).max(30_000) });
+const memoryLevelSchema = z.array(z.number().int().min(0).max(3)).min(1).max(5);
+export const minigameCompleteSchema = z.object({
+  idempotencyKey: z.string().uuid().optional(),
+  feedEvents: z.array(feedEventSchema).max(40).optional(),
+  memoryLevels: z.array(memoryLevelSchema).max(5).optional(),
+  cleanedZones: z.array(z.string().min(1).max(32)).max(16).optional()
+});
+export type MiniGameCompleteInput = z.infer<typeof minigameCompleteSchema>;
+
+export interface SnackCatchConfiguration {
+  gameType: 'feed'; durationSeconds: number; minimumCompletionSeconds: number; maxEvents: number;
+}
+export interface MemoryLightsConfiguration {
+  gameType: 'play'; sequence: number[]; levels: number; minimumCompletionSeconds: number;
+}
+export interface BubbleBathConfiguration {
+  gameType: 'clean'; durationSeconds: number; zones: string[];
+}
+export type MiniGameConfiguration = SnackCatchConfiguration | MemoryLightsConfiguration | BubbleBathConfiguration;
+
+export interface MiniGameSession {
+  id: string;
+  gameType: MiniGameType;
+  status: 'active' | 'completed' | 'abandoned' | 'expired';
+  configuration: MiniGameConfiguration;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface MiniGameResult extends PetResponse {
+  sessionId: string;
+  gameType: MiniGameType;
+  score: number;
+  reward: number;
+  rewardStat: 'satiety' | 'happiness' | 'hygiene';
+  message: string;
+  replayed?: boolean;
+}

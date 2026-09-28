@@ -31,6 +31,20 @@ export interface GameRules {
   fundamentalNeedThreshold: number;
   healthyNeedThreshold: number;
   actions: Record<Exclude<PetAction, 'sleep' | 'wake'>, { delta: Partial<PetStats>; cooldownMinutes: number }>;
+  minigames: Record<Exclude<PetAction, 'sleep' | 'wake'>, MiniGameRule>;
+}
+
+export interface MiniGameRule {
+  rewardStat: 'satiety' | 'happiness' | 'hygiene';
+  maximumReward: number;
+  cooldownMinutes: number;
+  durationSeconds?: number;
+  minimumCompletionSeconds?: number;
+  minimumEnergy?: number;
+  energyCost?: number;
+  levels?: number;
+  maxEvents?: number;
+  zones?: string[];
 }
 
 export interface GameEvent {
@@ -62,6 +76,11 @@ export const DEFAULT_GAME_RULES: GameRules = {
     feed: { delta: { satiety: 20 }, cooldownMinutes: 5 },
     play: { delta: { happiness: 15, energy: -10, satiety: -5 }, cooldownMinutes: 5 },
     clean: { delta: { hygiene: 25 }, cooldownMinutes: 10 }
+  },
+  minigames: {
+    feed: { rewardStat: 'satiety', maximumReward: 20, cooldownMinutes: 5, durationSeconds: 30, minimumCompletionSeconds: 20, maxEvents: 40 },
+    play: { rewardStat: 'happiness', maximumReward: 15, cooldownMinutes: 5, minimumCompletionSeconds: 1, minimumEnergy: 15, energyCost: 10, levels: 5 },
+    clean: { rewardStat: 'hygiene', maximumReward: 25, cooldownMinutes: 10, durationSeconds: 30, zones: ['ear-left', 'ear-right', 'forehead', 'cheek-left', 'cheek-right', 'chin', 'body-left', 'body-right'] }
   }
 };
 
@@ -117,6 +136,26 @@ export function applyAction(state: PetState, action: PetAction, now: Date, rules
 }
 
 export function cooldownFor(action: PetAction, now: Date, rules: GameRules = DEFAULT_GAME_RULES): Date | undefined {
-  const definition = action === 'sleep' || action === 'wake' ? undefined : rules.actions[action];
+  const definition = action === 'sleep' || action === 'wake' ? undefined : rules.minigames[action];
   return definition ? new Date(now.getTime() + definition.cooldownMinutes * 60_000) : undefined;
+}
+
+/** The browser reports interactions, never a trusted final score. These helpers keep the balance rules server-side. */
+export function scoreSnackCatch(events: Array<{ kind: 'good' | 'spoiled' }>): number {
+  const good = events.filter((event) => event.kind === 'good').length;
+  const spoiled = events.filter((event) => event.kind === 'spoiled').length;
+  return Math.max(0, Math.min(100, good * 8 - spoiled * 12));
+}
+
+export function scoreMemoryLights(completedLevels: number, levels: number): number {
+  return Math.max(0, Math.min(100, Math.round((Math.max(0, Math.min(completedLevels, levels)) / levels) * 100)));
+}
+
+export function scoreBubbleBath(cleanedZones: number, zones: number): number {
+  if (zones <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((Math.max(0, Math.min(cleanedZones, zones)) / zones) * 100)));
+}
+
+export function minigameReward(score: number, maximumReward: number): number {
+  return Math.round((Math.max(0, Math.min(100, score)) / 100) * maximumReward);
 }

@@ -60,3 +60,25 @@ export const petEvents = pgTable('pet_events', {
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 }, (table) => [uniqueIndex('pet_events_pet_id_idempotency_key_uq').on(table.petId, table.idempotencyKey).where(sql`${table.idempotencyKey} is not null`)]);
+
+export const minigameSessions = pgTable('minigame_sessions', {
+  id: uuid('id').primaryKey(),
+  petId: integer('pet_id').notNull().references(() => pets.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  gameType: varchar('game_type', { length: 16 }).notNull(),
+  status: varchar('status', { length: 16 }).notNull().default('active'),
+  configuration: jsonb('configuration').notNull(),
+  resultData: jsonb('result_data'),
+  score: integer('score'),
+  reward: integer('reward'),
+  completionKey: varchar('completion_key', { length: 80 }),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  index('minigame_sessions_user_id_idx').on(table.userId),
+  index('minigame_sessions_pet_status_idx').on(table.petId, table.status),
+  index('minigame_sessions_expires_at_idx').on(table.expiresAt),
+  uniqueIndex('minigame_sessions_one_active_per_pet_uq').on(table.petId).where(sql`${table.status} = 'active'`)
+]);

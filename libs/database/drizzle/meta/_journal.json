@@ -4,6 +4,7 @@
   "entries": [
     { "idx": 0, "version": "7", "when": 1760000000000, "tag": "0000_init", "breakpoints": true },
     { "idx": 1, "version": "7", "when": 1760000100000, "tag": "0001_fractional_stats", "breakpoints": true },
-    { "idx": 2, "version": "7", "when": 1760000200000, "tag": "0002_multiuser_auth", "breakpoints": true }
+    { "idx": 2, "version": "7", "when": 1760000200000, "tag": "0002_multiuser_auth", "breakpoints": true },
+    { "idx": 3, "version": "7", "when": 1790640000000, "tag": "0003_minigame_sessions", "breakpoints": true }
   ]
 }
