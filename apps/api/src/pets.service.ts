@@ -21,10 +21,10 @@ export class PetsService implements OnModuleDestroy {
     return { status: 'ok', database: 'ok' };
   }
 
-  async current(): Promise<PetResponse> {
+  async current(userId: string): Promise<PetResponse> {
     return this.db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(9182026)`);
-      const row = await this.currentLocked(tx);
+      await this.lockUser(tx, userId);
+      const row = await this.currentLocked(tx, userId);
       const now = new Date();
       const state = this.fromRow(row.pet, row.species.slug);
       const simulation = simulate(state, now);
@@ -33,16 +33,16 @@ export class PetsService implements OnModuleDestroy {
     });
   }
 
-  async adopt(input: AdoptionInput): Promise<PetResponse> {
+  async adopt(userId: string, input: AdoptionInput): Promise<PetResponse> {
     return this.db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(9182026)`);
-      const present = await tx.select({ id: pets.id }).from(pets).limit(1);
-      if (present.length) throw new ConflictException('A pet has already been adopted on this ORIO instance.');
+      await this.lockUser(tx, userId);
+      const present = await tx.select({ id: pets.id }).from(pets).where(eq(pets.ownerId, userId)).limit(1);
+      if (present.length) throw new ConflictException('You have already adopted an ORIO.');
       const [defaultSpecies] = await tx.select().from(species).where(eq(species.slug, 'orio')).limit(1);
       if (!defaultSpecies) throw new ServiceUnavailableException('The species catalogue has not been seeded.');
       const now = new Date();
       const [created] = await tx.insert(pets).values({
-        id: 1, speciesId: defaultSpecies.id, name: input.name,
+        ownerId: userId, speciesId: defaultSpecies.id, name: input.name,
         satiety: 75, happiness: 75, energy: 70, hygiene: 75, health: 100,
         isSleeping: false, adoptedAt: now, lastSimulatedAt: now, updatedAt: now
       }).returning();
@@ -53,14 +53,14 @@ export class PetsService implements OnModuleDestroy {
     });
   }
 
-  async act(action: PetAction, input: IdempotencyInput): Promise<ActionResponse> {
+  async act(userId: string, action: PetAction, input: IdempotencyInput): Promise<ActionResponse> {
     return this.db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(9182026)`);
+      await this.lockUser(tx, userId);
+      const row = await this.currentLocked(tx, userId);
       if (input.idempotencyKey) {
-        const [previous] = await tx.select().from(petEvents).where(eq(petEvents.idempotencyKey, input.idempotencyKey)).limit(1);
+        const [previous] = await tx.select().from(petEvents).where(and(eq(petEvents.petId, row.pet.id), eq(petEvents.idempotencyKey, input.idempotencyKey))).limit(1);
         if (previous) return { ...(previous.payload as PetResponse), message: 'Action already applied.', replayed: true };
       }
-      const row = await this.currentLocked(tx);
       const now = new Date();
       const cooldown = await tx.select().from(petActionCooldowns).where(and(eq(petActionCooldowns.petId, row.pet.id), eq(petActionCooldowns.action, action))).limit(1);
       if (cooldown[0] && cooldown[0].availableAt > now) throw new ConflictException(`This action is ready at ${cooldown[0].availableAt.toISOString()}.`);
@@ -78,8 +78,12 @@ export class PetsService implements OnModuleDestroy {
     });
   }
 
-  private async currentLocked(tx: Database): Promise<CurrentRow> {
-    const rows = await tx.select({ pet: pets, species }).from(pets).innerJoin(species, eq(pets.speciesId, species.id)).where(eq(pets.id, 1)).limit(1);
+  private async lockUser(tx: Database, userId: string): Promise<void> {
+    await tx.execute(sql`select pg_advisory_xact_lock(9182026, hashtext(${userId}))`);
+  }
+
+  private async currentLocked(tx: Database, userId: string): Promise<CurrentRow> {
+    const rows = await tx.select({ pet: pets, species }).from(pets).innerJoin(species, eq(pets.speciesId, species.id)).where(eq(pets.ownerId, userId)).limit(1);
     if (!rows[0]) throw new NotFoundException('No pet adopted yet.');
     return rows[0];
   }

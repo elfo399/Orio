@@ -1,36 +1,17 @@
 # Jenkins on Raspberry Pi
 
-`Jenkinsfile` intentionally follows the same two-stage model as the Synapse pipeline:
+`Jenkinsfile` follows the same two stages as Synapse:
 
-1. **Scarica main** — clean checkout of `elfo399/Orio` branch `main`.
-2. **Compila e aggiorna ORIO** — sends the validated commit SHA to ORIO's restricted SSH deploy command. That command stages the release, builds local images, runs migrations, starts Compose, and verifies HTTP health.
+1. **Scarica main** checks out `elfo399/Orio` branch `main`.
+2. **Compila e aggiorna ORIO** sends the validated commit SHA to the restricted SSH deploy command. It stages the release, builds local images, starts Compose, and checks health. The API performs its own migrations before listening.
 
-Like Synapse, it includes only success/failure post messages and never removes persistent volumes.
-
-## One-time host setup
-
-Use 64-bit Raspberry Pi OS (`uname -m` must show `aarch64`) and Docker Engine + Compose v2. As with Synapse, the Jenkins controller invokes a separate SSH deploy key; it does not need the Docker socket mounted.
-
-Confirm Docker availability on the Raspberry Pi host:
-
-```bash
-docker version
-docker compose version
-```
-
-Create a Pipeline job pointed at this repository and use the `main` branch. The job runs on the Jenkins controller and deploys to `host.docker.internal`, exactly like Synapse.
-
-## Jenkins credentials
+The Jenkins controller uses a separate restricted SSH deploy key, so it does not need Docker's socket mounted.
 
 Create these credentials before the first build:
 
 | ID | Type | Use |
 | --- | --- | --- |
-| `orio-deploy-ssh` | SSH username with private key | Restricted key that can only run ORIO's deploy command. |
-| `orio-deploy-known-hosts` | Secret file | The verified SSH host key for `host.docker.internal`. |
+| `orio-deploy-ssh` | SSH username with private key | Restricted key that can run only ORIO deploy. |
+| `orio-deploy-known-hosts` | Secret file | Verified host key for `host.docker.internal`. |
 
-The host deploy script creates `/home/elfo/services/orio/.env` with mode `0600` only on its first run. Later deployments retain that password and the `orio-postgres` volume.
-
-## Pipeline behaviour
-
-The stack listens on `127.0.0.1:18080`, avoiding Jenkins on port 8080. Configure the reverse proxy separately if ORIO must be publicly available.
+The host deploy script maintains `/home/elfo/services/orio/.env` with mode `0600`. On first update it provisions invite-only registration without printing the generated invite code; retrieve or replace `INVITE_CODES` directly from that protected file. Persistent PostgreSQL data is never removed by the pipeline.

@@ -1,19 +1,21 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { type PetAction, type PetResponse } from '@orio/contracts';
 import { formatRemaining } from '@orio/shared';
 import { PetApiService } from './pet-api.service.js';
 import { OrioMascotComponent } from './orio-mascot.component.js';
+import { AuthService } from './auth.service.js';
 
 type ViewState = 'loading' | 'adoption' | 'dashboard' | 'offline';
 type StatKey = 'satiety' | 'happiness' | 'energy' | 'hygiene' | 'health';
 
 @Component({
-  selector: 'orio-root', standalone: true, imports: [FormsModule, NgClass, OrioMascotComponent], changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'orio-dashboard', standalone: true, imports: [FormsModule, NgClass, OrioMascotComponent], changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="shell">
-      <header class="topbar"><a class="brand" href="/" aria-label="ORIO home"><span class="brand-orb">o</span><span>ORIO</span></a><span class="connection" [class.online]="view() === 'dashboard'" [class.offline]="view() === 'offline'"><i></i>{{ view() === 'offline' ? 'Offline' : view() === 'dashboard' ? 'Connected' : 'Connecting' }}</span></header>
+      <header class="topbar"><a class="brand" href="/dashboard" aria-label="ORIO home"><span class="brand-orb">o</span><span>ORIO</span></a><div class="profile"><span class="connection" [class.online]="view() === 'dashboard'" [class.offline]="view() === 'offline'"><i></i>{{ view() === 'offline' ? 'Offline' : view() === 'dashboard' ? 'Connected' : 'Connecting' }}</span><button class="profile-button" (click)="logout()"><b>{{ auth.user()?.displayName }}</b><small>{{ auth.user()?.email }}</small><span>Sign out</span></button></div></header>
       @if (view() === 'loading') { <section class="loading"><div class="dot-orbit"><i></i><i></i><i></i></div><p>Waking up your little world…</p></section> }
       @else if (view() === 'offline') { <section class="offline-card card"><orio-mascot [overrideExpression]="'sad'"/><h1>ORIO needs a connection</h1><p>Your pet is safe. Reconnect to see its authoritative, up-to-date world.</p><button class="primary" (click)="load()">Try again</button></section> }
       @else if (view() === 'adoption') {
@@ -35,9 +37,11 @@ type StatKey = 'satiety' | 'happiness' | 'energy' | 'hygiene' | 'health';
     </main>
   `
 })
-export class AppComponent {
+export class DashboardComponent {
   private readonly api = inject(PetApiService);
   private readonly destroyRef = inject(DestroyRef);
+  readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   readonly view = signal<ViewState>('loading');
   readonly response = signal<PetResponse | null>(null);
   readonly busy = signal(false);
@@ -67,7 +71,7 @@ export class AppComponent {
 
   load(): void {
     this.busy.set(true);
-    this.api.current().subscribe({ next: (data) => { this.response.set(data); this.view.set('dashboard'); this.busy.set(false); }, error: (error: { status?: number }) => { this.busy.set(false); this.view.set(error.status === 404 ? 'adoption' : 'offline'); } });
+    this.api.current().subscribe({ next: (data) => { this.response.set(data); this.view.set('dashboard'); this.busy.set(false); }, error: (error: { status?: number }) => { this.busy.set(false); if (error.status === 401) { this.auth.clear(); void this.router.navigateByUrl('/login'); return; } this.view.set(error.status === 404 ? 'adoption' : 'offline'); } });
   }
 
   adopt(): void {
@@ -89,5 +93,6 @@ export class AppComponent {
   actionHint(action: PetAction, data: PetResponse): string { if (action === 'wake') return data.pet.isSleeping ? 'End a cozy nap' : 'Already awake'; if (action === 'sleep') return data.pet.isSleeping ? 'Already dreaming' : 'Restore energy'; const remaining = this.cooldownText(action, data); return remaining ? `Ready in ${remaining}` : ({ feed: 'A nourishing bite', play: 'A joyful burst', clean: 'Fresh & tidy' } as Record<string, string>)[action]; }
   emotionLabel(status: string): string { return ({ happy: 'Feeling radiant', hungry: 'A little hungry', sad: 'Needs some care', sleeping: 'Sleeping soundly', sick: 'Under the weather', neutral: 'A calm little day' } as Record<string, string>)[status] ?? 'A calm little day'; }
   ageLabel(minutes: number): string { return minutes < 1 ? 'Just adopted' : minutes < 60 ? `${minutes} min old` : `${Math.floor(minutes / 60)}h old`; }
+  logout(): void { this.auth.logout().subscribe({ next: () => { this.auth.clear(); void this.router.navigateByUrl('/login'); }, error: () => { this.auth.clear(); void this.router.navigateByUrl('/login'); } }); }
   private showToast(message: string): void { this.toast.set(message); window.setTimeout(() => this.toast.set(null), 3_500); }
 }

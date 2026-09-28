@@ -48,6 +48,14 @@ if [[ ! -f "$DEPLOY_ENV" ]]; then
     "$password" "$password" > "$DEPLOY_ENV"
 fi
 
+# Source deployments use compose.yaml for local image builds. Make its account policy
+# production-safe without printing the generated invite secret to Jenkins logs.
+if ! grep -q '^REGISTRATION_MODE=' "$DEPLOY_ENV"; then
+  invite_code="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \\n')"
+  umask 077
+  printf '\nREGISTRATION_MODE=invite\nINVITE_CODES=%s\nSESSION_TTL_DAYS=30\nCOOKIE_SECURE=true\nTRUST_PROXY=true\n' "$invite_code" >> "$DEPLOY_ENV"
+fi
+
 cd "$release"
 docker compose --env-file "$DEPLOY_ENV" config --quiet
 docker compose --env-file "$DEPLOY_ENV" build api web

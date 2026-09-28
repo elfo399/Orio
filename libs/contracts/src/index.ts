@@ -11,6 +11,26 @@ export const idempotencySchema = z.object({
   idempotencyKey: z.string().uuid().optional()
 });
 
+const normalizedEmail = z.string().trim().email().max(320).transform((email) => email.toLowerCase());
+const passwordSchema = z.string().min(12, 'Use at least 12 characters.').max(128).regex(/[a-z]/, 'Include a lowercase letter.').regex(/[A-Z]/, 'Include an uppercase letter.').regex(/\d/, 'Include a number.');
+
+export const registerSchema = z.object({
+  email: normalizedEmail,
+  displayName: z.string().trim().min(2).max(80),
+  password: passwordSchema,
+  confirmPassword: z.string(),
+  inviteCode: z.string().trim().max(256).optional()
+}).superRefine((value, context) => {
+  if (value.password !== value.confirmPassword) context.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmPassword'], message: 'Passwords do not match.' });
+});
+
+export const loginSchema = z.object({ email: normalizedEmail, password: z.string().min(1).max(128) });
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
+
+export interface AuthUser { id: string; email: string; displayName: string; }
+export interface AuthResponse { user: AuthUser; }
+
 export const petActionSchema = z.enum(['feed', 'play', 'clean', 'sleep', 'wake']);
 export type PetAction = z.infer<typeof petActionSchema>;
 export type AdoptionInput = z.infer<typeof adoptionSchema>;
