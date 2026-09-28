@@ -2,6 +2,8 @@
 
 All endpoints are under `/api`. Apart from health and authentication, every route requires the ORIO HttpOnly session cookie. Caddy serves the web app and API on one origin; browser mutations must present that same origin.
 
+`POST /api/pets` hatches the authenticated account's one mystery egg. The server selects one of `orio`, `rabbit`, `fox`, `bear`, or `chick` with `crypto.randomInt`; repeat or concurrent requests return the already adopted pet rather than selecting another species.
+
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | Process and PostgreSQL health |

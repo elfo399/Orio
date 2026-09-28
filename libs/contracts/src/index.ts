@@ -3,6 +3,10 @@ import { z } from 'zod';
 export const PET_NAME_MIN_LENGTH = 2;
 export const PET_NAME_MAX_LENGTH = 24;
 
+/** Stable species identifiers stored in PostgreSQL and used to select the mascot. */
+export const petSpeciesSlugs = ['orio', 'rabbit', 'fox', 'bear', 'chick'] as const;
+export type PetSpeciesSlug = typeof petSpeciesSlugs[number];
+
 export const adoptionSchema = z.object({
   name: z.string().trim().min(PET_NAME_MIN_LENGTH).max(PET_NAME_MAX_LENGTH).regex(/^[\p{L}\p{N}][\p{L}\p{N} '\-]*$/u, 'Use letters, numbers, spaces, apostrophes or hyphens.')
 });

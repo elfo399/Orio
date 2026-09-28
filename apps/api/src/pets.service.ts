@@ -1,8 +1,9 @@
 import { ConflictException, Injectable, NotFoundException, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { randomInt } from 'node:crypto';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { type ActionResponse, type AdoptionInput, type ApiPet, type IdempotencyInput, type PetAction, type PetResponse } from '@orio/contracts';
+import { petSpeciesSlugs, type ActionResponse, type AdoptionInput, type ApiPet, type IdempotencyInput, type PetAction, type PetResponse } from '@orio/contracts';
 import { petActionCooldowns, petEvents, pets, species } from '@orio/database';
 import { applyAction, cooldownFor, type PetState, simulate } from '@orio/game-engine';
 
@@ -36,20 +37,26 @@ export class PetsService implements OnModuleDestroy {
   async adopt(userId: string, input: AdoptionInput): Promise<PetResponse> {
     return this.db.transaction(async (tx) => {
       await this.lockUser(tx, userId);
-      const present = await tx.select({ id: pets.id }).from(pets).where(eq(pets.ownerId, userId)).limit(1);
-      if (present.length) throw new ConflictException('You have already adopted an ORIO.');
-      const [defaultSpecies] = await tx.select().from(species).where(eq(species.slug, 'orio')).limit(1);
-      if (!defaultSpecies) throw new ServiceUnavailableException('The species catalogue has not been seeded.');
       const now = new Date();
+      const present = await tx.select({ pet: pets, species }).from(pets).innerJoin(species, eq(pets.speciesId, species.id)).where(eq(pets.ownerId, userId)).limit(1);
+      if (present[0]) {
+        return this.response(tx, this.fromRow(present[0].pet, present[0].species.slug), present[0].species, now);
+      }
+
+      const selectedSlug = petSpeciesSlugs[randomInt(petSpeciesSlugs.length)];
+      const catalogue = await tx.select().from(species).where(inArray(species.slug, petSpeciesSlugs));
+      const selectedSpecies = catalogue.find((entry) => entry.slug === selectedSlug);
+      if (!selectedSpecies) throw new ServiceUnavailableException('The species catalogue has not been seeded.');
       const [created] = await tx.insert(pets).values({
-        ownerId: userId, speciesId: defaultSpecies.id, name: input.name,
+        ownerId: userId, speciesId: selectedSpecies.id, name: input.name,
         satiety: 75, happiness: 75, energy: 70, hygiene: 75, health: 100,
         isSleeping: false, adoptedAt: now, lastSimulatedAt: now, updatedAt: now
       }).returning();
-      if (!created) throw new ServiceUnavailableException('Could not create ORIO.');
-      const state = this.fromRow(created, defaultSpecies.slug);
-      await tx.insert(petEvents).values({ petId: created.id, action: 'adopt', payload: { name: created.name }, occurredAt: now });
-      return this.response(tx, state, defaultSpecies, now);
+      if (!created) throw new ServiceUnavailableException('Could not hatch your egg.');
+      const state = this.fromRow(created, selectedSpecies.slug);
+      const response = await this.response(tx, state, selectedSpecies, now);
+      await tx.insert(petEvents).values({ petId: created.id, action: 'adopt', payload: response, occurredAt: now });
+      return response;
     });
   }
 
