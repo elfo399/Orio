@@ -1,35 +1,35 @@
 # Jenkins on Raspberry Pi
 
-`Jenkinsfile` is deliberately a small declarative ARM64 deployment pipeline. It has exactly three stages:
+`Jenkinsfile` intentionally follows the same two-stage model as the Synapse pipeline:
 
 1. **Scarica main** — clean checkout of `elfo399/Orio` branch `main`.
-2. **Compila** — builds the local `api` and `web` Docker images.
-3. **Aggiorna ORIO** — starts or replaces the local Compose stack, including migrations, and shows its status.
+2. **Compila e aggiorna ORIO** — sends the validated commit SHA to ORIO's restricted SSH deploy command. That command stages the release, builds local images, runs migrations, starts Compose, and verifies HTTP health.
 
-It intentionally has no test, registry, cleanup, or Declarative Post Actions stages.
+Like Synapse, it includes only success/failure post messages and never removes persistent volumes.
 
 ## One-time host setup
 
-Use 64-bit Raspberry Pi OS (`uname -m` must show `aarch64`), Docker Engine + Compose v2, and a Jenkins agent whose operating-system user can invoke Docker. If Jenkins itself runs in a container, prefer an SSH agent on the Raspberry Pi host instead of mounting `/var/run/docker.sock` into the controller. The host needs Java 21 for current Jenkins remoting.
+Use 64-bit Raspberry Pi OS (`uname -m` must show `aarch64`) and Docker Engine + Compose v2. As with Synapse, the Jenkins controller invokes a separate SSH deploy key; it does not need the Docker socket mounted.
 
-Confirm Docker availability from the Jenkins agent:
+Confirm Docker availability on the Raspberry Pi host:
 
 ```bash
 docker version
 docker compose version
 ```
 
-Create a Pipeline job pointed at this repository, set its agent label to `raspberry-pi && docker`, and use the `main` branch.
+Create a Pipeline job pointed at this repository and use the `main` branch. The job runs on the Jenkins controller and deploys to `host.docker.internal`, exactly like Synapse.
 
 ## Jenkins credentials
 
-Create this credential before the first build:
+Create these credentials before the first build:
 
 | ID | Type | Use |
 | --- | --- | --- |
-| `orio-postgres-password` | Secret text | Persistent ORIO database password. Use a URL-safe random value made only of letters, digits, `_`, and `-`. |
+| `orio-deploy-ssh` | SSH username with private key | Restricted key that can only run ORIO's deploy command. |
+| `orio-deploy-known-hosts` | Secret file | The verified SSH host key for `host.docker.internal`. |
 
-On the first build the pipeline creates `/home/elfo/services/orio/.env` with mode `0600`; later deployments retain that password and the `orio-postgres` volume.
+The host deploy script creates `/home/elfo/services/orio/.env` with mode `0600` only on its first run. Later deployments retain that password and the `orio-postgres` volume.
 
 ## Pipeline behaviour
 

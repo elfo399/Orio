@@ -1,57 +1,46 @@
 pipeline {
-  agent { label 'raspberry-pi && docker' }
-
-  options {
-    timestamps()
-    disableConcurrentBuilds()
-    buildDiscarder(logRotator(numToKeepStr: '20'))
-    skipDefaultCheckout(true)
-  }
-
-  environment {
-    DEPLOY_DIRECTORY = '/home/elfo/services/orio'
-  }
-
-  stages {
-    stage('Scarica main') {
-      steps {
-        checkout([
-          $class: 'GitSCM',
-          branches: [[name: '*/main']],
-          extensions: [[$class: 'CleanBeforeCheckout']],
-          userRemoteConfigs: [[url: 'https://github.com/elfo399/Orio.git']]
-        ])
-      }
+    agent any
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timestamps()
+        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
-
-    stage('Compila') {
-      steps {
-        withCredentials([string(credentialsId: 'orio-postgres-password', variable: 'ORIO_DB_PASSWORD')]) {
-          sh '''#!/usr/bin/env bash
-            set -euo pipefail
-            install -d -m 0750 "$DEPLOY_DIRECTORY"
-
-            # Create the deployment secret once; it is never committed to Git.
-            if [ ! -f "$DEPLOY_DIRECTORY/.env" ]; then
-              umask 077
-              printf 'POSTGRES_DB=orio\nPOSTGRES_USER=orio\nPOSTGRES_PASSWORD=%s\nDATABASE_URL=postgres://orio:%s@db:5432/orio\nWEB_PORT=18080\n' \
-                "$ORIO_DB_PASSWORD" "$ORIO_DB_PASSWORD" > "$DEPLOY_DIRECTORY/.env"
-            fi
-
-            docker compose --env-file "$DEPLOY_DIRECTORY/.env" -f compose.yaml build api web
-          '''
+    triggers {
+        githubPush()
+    }
+    stages {
+        stage('Scarica main') {
+            steps {
+                script {
+                    def revision = checkout(scm)
+                    env.GIT_COMMIT = revision.GIT_COMMIT
+                }
+                sh 'git log -1 --format="Commit: %h %s"'
+            }
         }
-      }
+        stage('Compila e aggiorna ORIO') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'orio-deploy-ssh', keyFileVariable: 'DEPLOY_KEY', usernameVariable: 'DEPLOY_USER'),
+                    file(credentialsId: 'orio-deploy-known-hosts', variable: 'DEPLOY_KNOWN_HOSTS')
+                ]) {
+                    sh '''
+                        set +x
+                        ssh -i "$DEPLOY_KEY" \\
+                            -o IdentitiesOnly=yes -o BatchMode=yes \\
+                            -o StrictHostKeyChecking=yes \\
+                            -o UserKnownHostsFile="$DEPLOY_KNOWN_HOSTS" \\
+                            -o ConnectTimeout=15 -o ServerAliveInterval=30 \\
+                            "$DEPLOY_USER@host.docker.internal" "deploy $GIT_COMMIT"
+                    '''
+                }
+            }
+        }
     }
-
-    stage('Aggiorna ORIO') {
-      steps {
-        sh '''#!/usr/bin/env bash
-          set -euo pipefail
-          docker compose --env-file "$DEPLOY_DIRECTORY/.env" -f compose.yaml up -d --no-build --remove-orphans
-          docker compose --env-file "$DEPLOY_DIRECTORY/.env" -f compose.yaml ps
-        '''
-      }
+    post {
+        success { echo 'ORIO aggiornato e verificato. Database e salvataggi restano nel volume persistente.' }
+        failure { echo 'Aggiornamento non riuscito: controllare il log. Nessun volume viene eliminato dal job.' }
     }
-  }
 }
