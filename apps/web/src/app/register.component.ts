@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
+import { SwUpdate } from '@angular/service-worker';
 import { AuthService } from './auth.service.js';
+import type { AuthUser } from '@orio/contracts';
 
 @Component({
   selector: 'orio-register', standalone: true, imports: [FormsModule, RouterLink], changeDetection: ChangeDetectionStrategy.OnPush,
@@ -13,7 +15,7 @@ import { AuthService } from './auth.service.js';
 })
 export class RegisterComponent {
   private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
+  private readonly updates = inject(SwUpdate);
   readonly busy = signal(false);
   readonly error = signal('');
   displayName = '';
@@ -25,8 +27,21 @@ export class RegisterComponent {
   submit(): void {
     this.busy.set(true); this.error.set('');
     this.auth.register({ email: this.email, displayName: this.displayName, password: this.password, confirmPassword: this.confirmPassword, inviteCode: this.inviteCode || undefined }).subscribe({
-      next: (response) => { this.auth.setUser(response.user); void this.router.navigateByUrl('/dashboard'); },
+      next: (response) => { void this.openFreshDashboard(response.user); },
       error: (response: { error?: { message?: string | string[] } }) => { this.busy.set(false); const message = response.error?.message; this.error.set(Array.isArray(message) ? message[0] : message ?? 'We could not create your account.'); }
     });
+  }
+
+  private async openFreshDashboard(user: AuthUser): Promise<void> {
+    this.auth.setUser(user);
+
+    try {
+      if (this.updates.isEnabled) {
+        await this.updates.checkForUpdate();
+        await this.updates.activateUpdate();
+      }
+    } finally {
+      window.location.assign('/dashboard');
+    }
   }
 }
