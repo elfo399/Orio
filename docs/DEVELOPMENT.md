@@ -31,3 +31,5 @@ ORIO_BASE_URL=http://127.0.0.1:8080 pnpm docker:smoke
 The PostgreSQL integration suite verifies the transaction/one-adoption race and idempotent replay. It intentionally skips when `TEST_DATABASE_URL` is absent. The E2E test must start with an empty database because it adopts the one available pet.
 
 Nx project metadata is included for graph/caching (`pnpm exec nx graph`, `pnpm exec nx run-many -t build`); project scripts remain intentionally direct and portable.
+
+For a native ARM64 Jenkins agent and optional publish/deploy flow, see [Jenkins](JENKINS.md).

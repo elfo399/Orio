@@ -53,4 +53,4 @@ Contributions, bug reports, and thoughtful design ideas are welcome. Please star
 
 ---
 
-For setup, architecture, API, game balancing, containers, and Raspberry Pi deployment, visit the [technical documentation](docs/DEVELOPMENT.md).
+For setup, architecture, API, game balancing, containers, Raspberry Pi deployment, and Jenkins automation, visit the [technical documentation](docs/DEVELOPMENT.md).
