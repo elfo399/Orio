@@ -8,9 +8,14 @@ import type { AuthenticatedRequest } from './auth.types.js';
 type Request = { headers: { cookie?: string | string[] }; ip?: string; socket?: { remoteAddress?: string } };
 type Response = { cookie(name: string, value: string, options: object): void; clearCookie(name: string, options: object): void };
 
-function parseBody<T>(schema: { safeParse(value: unknown): { success: true; data: T } | { success: false; error: { flatten(): unknown } } }, value: unknown): T {
+function parseBody<T>(schema: { safeParse(value: unknown): { success: true; data: T } | { success: false; error: { flatten(): unknown; issues: Array<{ message: string }> } } }, value: unknown): T {
   const parsed = schema.safeParse(value);
-  if (!parsed.success) throw new BadRequestException({ message: 'Invalid request.', issues: parsed.error.flatten() });
+  if (!parsed.success) {
+    throw new BadRequestException({
+      message: parsed.error.issues[0]?.message ?? 'Invalid request.',
+      issues: parsed.error.flatten()
+    });
+  }
   return parsed.data;
 }
 
