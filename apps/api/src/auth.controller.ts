@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
-import { loginSchema, registerSchema, type AuthResponse, type LoginInput, type RegisterInput } from '@orio/contracts';
+import { loginSchema, passwordResetConfirmSchema, passwordResetRequestSchema, registerSchema, type AuthResponse, type LoginInput, type PasswordResetConfirmInput, type PasswordResetRequestInput, type RegisterInput } from '@orio/contracts';
 import { AuthService, readCookie } from './auth.service.js';
 import { CurrentUser, Public } from './auth.decorators.js';
 import { LoginRateLimitService } from './login-rate-limit.service.js';
@@ -59,6 +59,28 @@ export class AuthController {
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
     await this.auth.logout(readCookie(request.headers.cookie, 'orio_session'));
     response.clearCookie('orio_session', { httpOnly: true, sameSite: 'lax', path: '/api', secure: cookieOptions().secure });
+  }
+
+  @Post('password-reset')
+  @HttpCode(202)
+  @Public()
+  async requestPasswordReset(@Body() body: unknown, @Req() request: Request): Promise<{ message: string }> {
+    const input = parseBody<PasswordResetRequestInput>(passwordResetRequestSchema, body);
+    const ip = clientAddress(request as unknown as AuthenticatedRequest);
+    if (this.limits.resetAllowed(ip, input.email)) {
+      this.limits.resetRequested(ip, input.email);
+      await this.auth.requestPasswordReset(input);
+    }
+    return { message: 'If an account exists for that email, a reset link is on its way.' };
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(200)
+  @Public()
+  async confirmPasswordReset(@Body() body: unknown, @Res({ passthrough: true }) response: Response): Promise<{ message: string }> {
+    await this.auth.confirmPasswordReset(parseBody<PasswordResetConfirmInput>(passwordResetConfirmSchema, body));
+    response.clearCookie('orio_session', { httpOnly: true, sameSite: 'lax', path: '/api', secure: cookieOptions().secure });
+    return { message: 'Password updated. Please sign in with your new password.' };
   }
 
   @Get('me')

@@ -27,6 +27,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       TRUST_PROXY: ${TRUST_PROXY:-true}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES:-30}
     depends_on: { db: { condition: service_healthy } }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

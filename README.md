@@ -17,3 +17,5 @@ Feed, Play, and Clean are interactive care moments rather than instant rewards. 
 <p align="center"><a href="docs/DOCKER.md">Run with Docker</a> · <a href="docs/RASPBERRY_PI.md">Raspberry Pi</a> · <a href="docs/API.md">API</a></p>
 
 The Docker configuration supports AMD64 and ARM64, keeps PostgreSQL private behind Caddy, and retains saves in a named volume. Use invite-only registration and HTTPS when exposing ORIO outside your private network.
+
+For password recovery, set `RESEND_API_KEY` and a verified `RESEND_FROM` sender in `.env`, then keep `PUBLIC_ORIGIN` set to the public HTTPS address. ORIO sends a short-lived, one-time reset link and revokes old sessions when the password changes.

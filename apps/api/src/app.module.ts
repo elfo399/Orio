@@ -8,9 +8,10 @@ import { MinigamesController } from './minigames.controller.js';
 import { MinigamesService } from './minigames.service.js';
 import { PetsController } from './pets.controller.js';
 import { PetsService } from './pets.service.js';
+import { ResendEmailService } from './resend-email.service.js';
 
 @Module({
   controllers: [AuthController, PetsController, MinigamesController],
-  providers: [AuthService, LoginRateLimitService, PetsService, MinigamesService, { provide: APP_GUARD, useClass: AuthGuard }]
+  providers: [AuthService, LoginRateLimitService, PetsService, MinigamesService, ResendEmailService, { provide: APP_GUARD, useClass: AuthGuard }]
 })
 export class AppModule {}

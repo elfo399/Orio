@@ -11,6 +11,8 @@ All endpoints are under `/api`. Apart from health and authentication, every rout
 | `POST` | `/auth/login` | Start a session; invalid credentials remain generic |
 | `POST` | `/auth/logout` | Revoke the current session and clear the cookie |
 | `GET` | `/auth/me` | Return the authenticated display name and email |
+| `POST` | `/auth/password-reset` | Request a one-time password-reset email; always returns a generic response |
+| `POST` | `/auth/password-reset/confirm` | Consume a valid reset token, set the new password, and revoke all sessions |
 | `GET` | `/pets/current` | Simulate and return the current user's pet, or `404` before adoption |
 | `POST` | `/pets` | Adopt the current user's pet |
 | `POST` | `/minigames/sessions` | Start Feed, Play, or Clean and return the server-generated configuration |
@@ -21,6 +23,8 @@ All endpoints are under `/api`. Apart from health and authentication, every rout
 | `POST` | `/pets/current/actions/wake` | Wake up |
 
 Registration accepts `email`, `displayName`, `password`, `confirmPassword`, and optionally `inviteCode`. Emails are normalized and passwords require at least 12 characters with uppercase, lowercase, and a number. Set server-side `REGISTRATION_MODE` to `invite`, `open`, or `disabled`; in invite mode, `INVITE_CODES` is never sent to clients.
+
+Password reset uses Resend. Configure `RESEND_API_KEY`, a Resend-verified `RESEND_FROM` value such as `ORIO <no-reply@your-domain>`, and an HTTPS `PUBLIC_ORIGIN`. A request stores only a SHA-256 hash of a random token; each link expires after `PASSWORD_RESET_TTL_MINUTES` (30 by default), is invalidated by a later request, can be used once, and revokes every existing session after success. Reset requests are rate-limited and deliberately return the same success message for known and unknown addresses.
 
 Adoption accepts `{ "name": "Miso" }`. Sleep and wake actions accept `{ "idempotencyKey": "uuid-optional" }`; a retry can replay only a prior action for that same pet. Clients never send user IDs, statistics, or timestamps.
 

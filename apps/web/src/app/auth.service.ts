@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { AuthResponse, AuthUser, LoginInput, RegisterInput } from '@orio/contracts';
+import type { AuthResponse, AuthUser, LoginInput, PasswordResetConfirmInput, PasswordResetRequestInput, RegisterInput } from '@orio/contracts';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -28,6 +28,14 @@ export class AuthService {
 
   logout() {
     return this.http.post<void>('/api/auth/logout', {}, { withCredentials: true });
+  }
+
+  requestPasswordReset(input: PasswordResetRequestInput) {
+    return this.http.post<{ message: string }>('/api/auth/password-reset', input, { withCredentials: true });
+  }
+
+  confirmPasswordReset(input: PasswordResetConfirmInput) {
+    return this.http.post<{ message: string }>('/api/auth/password-reset/confirm', input, { withCredentials: true });
   }
 
   setUser(user: AuthUser): void { this.user.set(user); this.restoration = Promise.resolve(true); }

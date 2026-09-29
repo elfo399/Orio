@@ -32,6 +32,17 @@ export const loginSchema = z.object({ email: normalizedEmail, password: z.string
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const passwordResetRequestSchema = z.object({ email: normalizedEmail });
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(32).max(256),
+  password: passwordSchema,
+  confirmPassword: z.string()
+}).superRefine((value, context) => {
+  if (value.password !== value.confirmPassword) context.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmPassword'], message: 'Passwords do not match.' });
+});
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
+
 export interface AuthUser { id: string; email: string; displayName: string; }
 export interface AuthResponse { user: AuthUser; }
 
